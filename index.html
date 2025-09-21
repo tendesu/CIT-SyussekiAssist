@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CIT出席アシスト</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#30386C">
+
+
+  <style>
+    body {
+      font-family: sans-serif;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      background: #f0f0f0;
+      color: #000;
+      overflow: hidden;
+    }
+
+    header {
+      position: fixed;
+      top: 0;
+      width: 100%;
+      text-align: center;
+      padding: 15px 0;
+      background: transparent;
+    }
+
+    h1 {
+      font-size: 26px;
+      margin: 0;
+      color: #30386C;
+    }
+
+    main {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      flex: 1;
+      text-align: center;
+    }
+
+    h2 {
+      font-size: 20px;
+      margin-bottom: 20px;
+    }
+
+    input {
+      font-size: 28px;
+      padding: 12px;
+      width: 220px;
+      text-align: center;
+      border: 2px solid #30386C;
+      border-radius: 8px;
+    }
+
+    button {
+      margin-top: 30px;
+      font-size: 24px;
+      padding: 15px 40px;
+      background-color: #30386C;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      opacity: 0.9;
+    }
+
+    footer {
+      position: fixed;
+      bottom: 0;
+      width: 100%;
+      text-align: center;
+      font-size: 12px;
+      padding: 10px 5px;
+      background: transparent;
+      color: #ccc;
+      line-height: 1.4;
+      word-break: keep-all;
+    }
+
+    /* ダークモード */
+    @media (prefers-color-scheme: dark) {
+      body {
+        background: #121212;
+        color: #fff;
+      }
+      input {
+        background: #1e1e1e;
+        color: #fff;
+      }
+      /* input {
+        border: 2px solid #5a5f9e;
+      }
+      button {
+        background-color: #5a5f9e;
+      }
+      h1 {
+        color: #5a5f9e;
+      } */
+      footer {
+        color: #222;
+      }
+    }
+  </style>
+</head>
+
+
+
+
+<body>
+  <header>
+    <h1>CIT出席アシスト</h1>
+  </header>
+
+  <main>
+    <h2>教室を入力</h2>
+    <input 
+      type="text" 
+      id="numberInput" 
+      inputmode="numeric" 
+      pattern="[0-9]*">
+    <br>
+    <button id="goButton">出席</button>
+  </main>
+
+  <footer>
+    このツールの利用によって生じるいかなる問題について、<wbr>制作者は一切の責任を負いません。
+  </footer>
+
+
+
+
+  <script>
+    const input = document.getElementById("numberInput");
+    const button = document.getElementById("goButton");
+
+
+    function jump() {
+      const value = input.value.trim();
+      if (value !== "") {
+        const targetUrl = "https://attendance.is.it-chiba.ac.jp/attendance/class_room/" + value;
+        // const targetUrl = "https://awdawdawd.com/" + value;
+        window.location.href = targetUrl;
+      }
+    }
+
+    // ボタン移動
+    button.addEventListener("click", jump);
+
+    // Enter移動
+    input.addEventListener("keydown", e => { if (e.key === "Enter") jump(); });
+
+    // change移動
+    input.addEventListener("change", jump);
+
+    // blur移動 厄介
+    // input.addEventListener("blur", jump);
+
+
+    // オートフォーカス
+    window.addEventListener("load", function() {
+      const input = document.getElementById("numberInput");
+      input.focus();
+    });
+  </script>
+
+</body>
+</html>
