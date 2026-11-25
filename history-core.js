@@ -12,6 +12,14 @@ const FIRST_START = 9;
 const LAST_START = 18;
 const BEFORE = 30;
 const AFTER = 60;
+// 記録するのは8:00〜18:59の出席だけ (19:00〜翌7:59は保存しない)
+const RECORD_FROM = 8;
+const RECORD_UNTIL = 19;
+
+function inRecordHours(time) {
+    const h = new Date(time).getHours();
+    return h >= RECORD_FROM && h < RECORD_UNTIL;
+}
 
 function getDays() {
     try {
@@ -37,11 +45,11 @@ function saveHistory(list) {
     }
 }
 
-// 保存期間を過ぎたものは削除して返す
+// 保存期間を過ぎたもの・記録しない時間帯のものは削除して返す
 function loadHistory() {
     try {
         const list = JSON.parse(localStorage.getItem(HISTORY_KEY)) || [];
-        const kept = list.filter((h) => Date.now() - h.time < getDays() * DAY);
+        const kept = list.filter((h) => Date.now() - h.time < getDays() * DAY && inRecordHours(h.time));
         if (kept.length !== list.length) saveHistory(kept);
         return kept;
     } catch (e) {
@@ -50,6 +58,7 @@ function loadHistory() {
 }
 
 function addHistory(room) {
+    if (!inRecordHours(Date.now())) return;
     const list = loadHistory();
     const last = list[list.length - 1];
     // Enterとchangeで二重に記録しないように
@@ -60,10 +69,13 @@ function addHistory(room) {
 
 // その時刻(分)に出席したとき、考えられる授業開始時刻(時)
 // 出席できるのは開始30分前から1時間後までなので、毎時0分開始のうちそれに当てはまるもの
+// 授業は1限(9:00)〜10限(18:00)なので、8時台の出席は1限として扱う
 function startCandidates(min) {
     const result = [];
-    for (let h = Math.ceil((min - AFTER) / 60); h * 60 - BEFORE <= min; h++) result.push(h);
-    return result;
+    for (let h = Math.ceil((min - AFTER) / 60); h * 60 - BEFORE <= min; h++) {
+        if (h >= FIRST_START && h <= LAST_START) result.push(h);
+    }
+    return result.length ? result : [FIRST_START];
 }
 
 // 同じ教室・同じ曜日・同じ開始時刻の候補の記録を1つの授業としてまとめる

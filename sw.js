@@ -1,5 +1,5 @@
 // ファイルを更新したらVERSIONを上げる
-const VERSION = "v9";
+const VERSION = "v10";
 const CACHE = "cit-syusseki-" + VERSION;
 const ASSETS = [
     "./",
