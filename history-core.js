@@ -87,3 +87,24 @@ function canAttendNow(cls, now = new Date()) {
     const min = now.getHours() * 60 + now.getMinutes();
     return cls.starts.some((h) => min >= h * 60 - BEFORE && min <= h * 60 + AFTER);
 }
+
+// 今出席できる教室を、ありそうな順に並べる
+// 1. 過去の出席時刻が今の時刻に近い  2. 出席回数が多い  3. 最近出席した
+function suggestRooms(list, now = new Date()) {
+    const nowMin = now.getHours() * 60 + now.getMinutes();
+    const rooms = new Map();
+    for (const c of classify(list)) {
+        if (!canAttendNow(c, now)) continue;
+        const r = rooms.get(c.room) || { room: c.room, diff: Infinity, count: 0, last: 0 };
+        for (const { time } of c.items) {
+            const d = new Date(time);
+            r.diff = Math.min(r.diff, Math.abs(d.getHours() * 60 + d.getMinutes() - nowMin));
+            r.count++;
+            r.last = Math.max(r.last, time);
+        }
+        rooms.set(c.room, r);
+    }
+    return [...rooms.values()]
+        .sort((a, b) => a.diff - b.diff || b.count - a.count || b.last - a.last)
+        .map((r) => r.room);
+}

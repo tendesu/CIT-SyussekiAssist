@@ -326,8 +326,8 @@
             /* 今の時間に出席できる過去の教室 */
             .suggest {
                 display: flex;
-                flex-wrap: wrap;
-                justify-content: center;
+                flex-direction: column;
+                align-items: stretch;
                 gap: 10px;
                 margin-top: 20px;
             }
@@ -339,6 +339,7 @@
             .suggest-button {
                 display: flex;
                 align-items: baseline;
+                justify-content: center;
                 gap: 6px;
                 margin: 0;
                 padding: 10px 20px;
@@ -581,15 +582,9 @@
                 if (value !== "") go(value);
             }
 
-            // 今の時間に出席できる過去の教室を表示
+            // 今の時間に出席できる過去の教室を、ありそうな順に表示
             function showSuggestions() {
-                const rooms = [];
-                const classes = classify(loadHistory()).sort(
-                    (a, b) => Math.max(...b.items.map((x) => x.time)) - Math.max(...a.items.map((x) => x.time)),
-                );
-                for (const c of classes) {
-                    if (!rooms.includes(c.room) && canAttendNow(c)) rooms.push(c.room);
-                }
+                const rooms = suggestRooms(loadHistory());
                 const box = document.getElementById("suggest");
                 box.replaceChildren();
                 rooms.slice(0, 3).forEach((room) => {
