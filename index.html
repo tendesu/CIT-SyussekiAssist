@@ -338,9 +338,9 @@
 
             .suggest-button {
                 display: flex;
-                align-items: baseline;
+                align-items: center;
                 justify-content: center;
-                gap: 6px;
+                gap: 8px;
                 margin: 0;
                 padding: 10px 20px;
                 font-size: 16px;
@@ -590,8 +590,11 @@
                 rooms.slice(0, 3).forEach((room) => {
                     const b = document.createElement("button");
                     b.className = "suggest-button";
-                    b.innerHTML = '<span class="suggest-room"></span><span>で出席</span>';
-                    b.firstChild.textContent = room;
+                    b.innerHTML =
+                        '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true">' +
+                        '<path d="M3 12a9 9 0 1 0 3-6.7L3 8" /><path d="M3 3v5h5M12 7v5l3 3" /></svg>' +
+                        '<span><span class="suggest-room"></span>に出席</span>';
+                    b.querySelector(".suggest-room").textContent = room;
                     b.addEventListener("click", () => go(room));
                     box.appendChild(b);
                 });
