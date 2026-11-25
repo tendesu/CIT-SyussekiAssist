@@ -6,6 +6,8 @@
         <title>CIT出席アシスト</title>
         <link rel="manifest" href="manifest.json" />
         <meta name="theme-color" content="#30386C" />
+        <!-- 出席ページへの接続を事前に確立 -->
+        <link rel="preconnect" href="https://attendance.is.chibatech.ac.jp" />
 
         <style>
             body {
@@ -206,16 +208,69 @@
                 id="numberInput"
                 inputmode="numeric"
                 pattern="[0-9]*"
+                autofocus
             />
             <br />
             <button id="goButton">出席</button>
         </main>
 
-        <nav
-            class="bottom-links"
-            aria-label="よく使うリンク"
-            id="bottomLinks"
-        ></nav>
+        <nav class="bottom-links" aria-label="よく使うリンク">
+            <a
+                class="bottom-link"
+                href="https://portal.chibatech.ac.jp/uprx/"
+                target="_blank"
+                rel="noopener noreferrer"
+            >
+                <span class="bottom-link-icon"
+                    ><img src="link/icon/cit_portal.png" alt="" width="34" height="34"
+                /></span>
+                <span class="bottom-link-label">CITポータル</span>
+            </a>
+            <a
+                class="bottom-link"
+                href="https://cit.manaba.jp/ct/home"
+                target="_blank"
+                rel="noopener noreferrer"
+            >
+                <span class="bottom-link-icon"
+                    ><img src="link/icon/manaba.png" alt="" width="34" height="34"
+                /></span>
+                <span class="bottom-link-label">manaba</span>
+            </a>
+            <a
+                class="bottom-link"
+                href="https://www.cit-s.com/dining/"
+                target="_blank"
+                rel="noopener noreferrer"
+            >
+                <span class="bottom-link-icon"
+                    ><img src="link/icon/gohan.png" alt="" width="34" height="34"
+                /></span>
+                <span class="bottom-link-label">学食</span>
+            </a>
+            <a
+                class="bottom-link"
+                href="https://kmsk.is.it-chiba.ac.jp/portal/whole/gakubu/bus_schedule.pdf"
+                target="_blank"
+                rel="noopener noreferrer"
+            >
+                <span class="bottom-link-icon"
+                    ><img src="link/icon/bus.png" alt="" width="34" height="34"
+                /></span>
+                <span class="bottom-link-label">バスダイヤ</span>
+            </a>
+            <a
+                class="bottom-link"
+                href="https://kmsk.is.it-chiba.ac.jp/portal/"
+                target="_blank"
+                rel="noopener noreferrer"
+            >
+                <span class="bottom-link-icon"
+                    ><img src="link/icon/siryou.png" alt="" width="34" height="34"
+                /></span>
+                <span class="bottom-link-label">学生資料室</span>
+            </a>
+        </nav>
 
         <footer>
             このツールの利用によって生じるいかなる問題について、<wbr />制作者は一切の責任を負いません。
@@ -249,49 +304,13 @@
             // blur移動 厄介
             // input.addEventListener("blur", jump);
 
-            // configからリンクを生成
-            async function loadLinks() {
-                try {
-                    const response = await fetch("link/config.json");
-                    const config = await response.json();
-                    const bottomLinksContainer =
-                        document.getElementById("bottomLinks");
+            // オートフォーカス (autofocusが効かない環境向け)
+            if (document.activeElement !== input) input.focus();
 
-                    config.links.forEach((link) => {
-                        const a = document.createElement("a");
-                        a.className = "bottom-link";
-                        a.href = link.url;
-                        a.target = "_blank";
-                        a.rel = "noopener noreferrer";
-
-                        const iconSpan = document.createElement("span");
-                        iconSpan.className = "bottom-link-icon";
-
-                        const img = document.createElement("img");
-                        img.alt = "";
-                        img.src = link.icon;
-
-                        iconSpan.appendChild(img);
-
-                        const labelSpan = document.createElement("span");
-                        labelSpan.className = "bottom-link-label";
-                        labelSpan.textContent = link.label;
-
-                        a.appendChild(iconSpan);
-                        a.appendChild(labelSpan);
-
-                        bottomLinksContainer.appendChild(a);
-                    });
-                } catch (error) {
-                    console.error("configの読み込みに失敗しました:", error);
-                }
+            // オフラインキャッシュ
+            if ("serviceWorker" in navigator) {
+                navigator.serviceWorker.register("sw.js");
             }
-
-            // オートフォーカス
-            window.addEventListener("load", function () {
-                input.focus();
-                loadLinks();
-            });
         </script>
     </body>
 </html>
