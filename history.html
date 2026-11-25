@@ -191,10 +191,11 @@
                 <label>
                     保存期間
                     <select id="days">
-                        <option value="8">1週間と1日</option>
-                        <option value="15">2週間と1日（標準）</option>
-                        <option value="29">4週間と1日</option>
-                        <option value="120">4か月（半期）</option>
+                        <!-- 期限ちょうどに出席時刻を迎えても消えないよう、内部では+1日 -->
+                        <option value="8">1週間</option>
+                        <option value="15">2週間（標準）</option>
+                        <option value="29">4週間</option>
+                        <option value="121">4か月（半期）</option>
                     </select>
                 </label>
                 <button id="clearAll">すべて削除</button>
@@ -322,8 +323,12 @@
             daysSelect.value = String(getDays());
             daysSelect.addEventListener("change", () => {
                 const days = Number(daysSelect.value);
-                const removed = load().filter((h) => Date.now() - h.time >= days * DAY).length;
-                if (removed > 0 && !confirm(`${removed}件の履歴が保存期間を過ぎるため削除されます。変更しますか？`)) {
+                const list = load();
+                // 同じ授業の新しい履歴が残るものは数えず、丸ごと消える授業だけ確認する
+                const removed = groups(list).filter((g) =>
+                    g.times.every((t) => Date.now() - t >= days * DAY),
+                ).length;
+                if (removed > 0 && !confirm(`${removed}件の授業が履歴から削除されます。変更しますか？`)) {
                     daysSelect.value = String(getDays());
                     return;
                 }
