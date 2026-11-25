@@ -8,6 +8,10 @@
         <meta name="theme-color" content="#30386C" />
 
         <style>
+            :root {
+                --row: 46px;
+            }
+
             body {
                 font-family: sans-serif;
                 margin: 0;
@@ -18,6 +22,7 @@
             header {
                 position: sticky;
                 top: 0;
+                z-index: 3;
                 display: flex;
                 align-items: center;
                 gap: 8px;
@@ -49,9 +54,9 @@
             }
 
             main {
-                max-width: 560px;
+                max-width: 640px;
                 margin: 0 auto;
-                padding: 0 16px 40px;
+                padding: 0 12px 40px;
             }
 
             .settings {
@@ -60,7 +65,7 @@
                 align-items: center;
                 justify-content: space-between;
                 gap: 12px;
-                margin: 8px 0 20px;
+                margin: 8px 0 16px;
             }
 
             label {
@@ -92,59 +97,148 @@
             .note {
                 font-size: 13px;
                 color: #666;
-                margin: -8px 0 20px;
+                margin: 0 0 16px;
             }
 
-            .card {
-                display: flex;
-                align-items: center;
-                gap: 16px;
-                padding: 14px 16px;
-                margin-bottom: 12px;
+            /* 時間割 */
+            .timetable {
+                display: grid;
+                grid-template-columns: 40px repeat(var(--days), minmax(0, 1fr));
                 background: #fff;
                 border-radius: 12px;
                 box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+                overflow: hidden;
             }
 
-            .room {
-                min-width: 72px;
-                font-size: 32px;
+            .day-head {
+                padding: 8px 0;
+                font-size: 14px;
                 font-weight: 700;
                 text-align: center;
-                color: #30386c;
+                border-bottom: 1px solid #ddd;
             }
 
-            .detail {
-                flex: 1;
-                min-width: 0;
+            .day-head.today {
+                color: #fff;
+                background: #30386c;
             }
 
-            .slot {
-                font-size: 16px;
-                font-weight: 700;
+            .times {
+                position: relative;
             }
 
-            .window {
-                margin-top: 2px;
-                font-size: 13px;
-            }
-
-            .dates {
-                margin-top: 4px;
-                font-size: 13px;
+            .time {
+                height: var(--row);
+                box-sizing: border-box;
+                padding: 2px 4px 0 0;
+                font-size: 11px;
+                text-align: right;
                 color: #666;
+                border-top: 1px solid #eee;
             }
 
-            .delete {
-                padding: 8px;
-                line-height: 0;
-                border: none;
+            .day-col {
+                position: relative;
+                border-left: 1px solid #eee;
+                background-image: linear-gradient(#eee 1px, transparent 1px);
+                background-size: 100% var(--row);
+            }
+
+            .class {
+                position: absolute;
+                box-sizing: border-box;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                margin: 0;
+                padding: 2px;
+                font-size: 15px;
+                font-weight: 700;
+                color: #fff;
+                background: #30386c;
+                border: 2px solid #30386c;
+                border-radius: 6px;
+                overflow: hidden;
+            }
+
+            /* 開始時刻を絞り込み中の授業 */
+            .class.unsure {
+                color: #30386c;
+                background: rgba(48, 56, 108, 0.1);
+                border-style: dashed;
+            }
+
+            .class small {
+                font-size: 10px;
+                font-weight: 400;
+            }
+
+            /* 重なって低くなった授業 */
+            .class.compact {
+                font-size: 13px;
+                line-height: 1;
+                border-width: 1px;
+            }
+
+            .class.compact small {
+                display: none;
             }
 
             .empty {
-                margin-top: 60px;
+                margin: 16px 0 0;
                 text-align: center;
                 color: #666;
+            }
+
+            /* 授業の詳細 */
+            .sheet {
+                width: min(100% - 32px, 420px);
+                padding: 20px;
+                border: none;
+                border-radius: 16px;
+                background: #fff;
+                color: #000;
+            }
+
+            .sheet::backdrop {
+                background: rgba(0, 0, 0, 0.4);
+            }
+
+            .sheet-room {
+                font-size: 40px;
+                font-weight: 700;
+                color: #30386c;
+            }
+
+            .sheet-slot {
+                margin-top: 4px;
+                font-size: 17px;
+                font-weight: 700;
+            }
+
+            .sheet-window {
+                margin-top: 4px;
+                font-size: 14px;
+            }
+
+            .sheet ul {
+                margin: 12px 0 0;
+                padding-left: 20px;
+                font-size: 14px;
+                color: #444;
+            }
+
+            .sheet-actions {
+                display: flex;
+                justify-content: space-between;
+                gap: 12px;
+                margin-top: 20px;
+            }
+
+            .sheet-close {
+                color: #30386c;
+                border-color: #30386c;
             }
 
             @media (prefers-color-scheme: dark) {
@@ -162,20 +256,49 @@
                     color: #fff;
                     border-color: #9aa2e0;
                 }
-                .card {
+                .timetable,
+                .sheet {
                     background: #1e1e1e;
+                    color: #fff;
                 }
-                .room {
+                .day-head {
+                    border-color: #333;
+                }
+                .day-head.today {
+                    background: #5a62a8;
+                }
+                .time {
+                    border-color: #2a2a2a;
+                }
+                .day-col {
+                    border-color: #2a2a2a;
+                    background-image: linear-gradient(#2a2a2a 1px, transparent 1px);
+                }
+                .class {
+                    background: #5a62a8;
+                    border-color: #5a62a8;
+                }
+                .class.unsure {
+                    color: #c5cbf5;
+                    background: rgba(154, 162, 224, 0.12);
+                    border-color: #9aa2e0;
+                }
+                .sheet-room {
                     color: #9aa2e0;
                 }
                 .note,
-                .dates,
-                .empty {
+                .time,
+                .empty,
+                .sheet ul {
                     color: #aaa;
                 }
                 button {
                     color: #ff7b6e;
                     border-color: #ff7b6e;
+                }
+                .sheet-close {
+                    color: #9aa2e0;
+                    border-color: #9aa2e0;
                 }
             }
         </style>
@@ -207,16 +330,30 @@
                 <button id="clearAll">すべて削除</button>
             </div>
             <p class="note">
-                同じ曜日の授業開始30分前から1時間後まで、トップページに出席ボタンが表示されます。開始時刻は出席の記録が増えるほど絞り込まれます。
+                授業開始30分前から1時間後まで、トップページに出席ボタンが表示されます。点線の授業は開始時刻を絞り込み中です（出席の記録が増えると確定します）。
             </p>
-            <div id="list"></div>
+            <div class="timetable" id="timetable"></div>
+            <p class="empty" id="empty" hidden>履歴はまだありません</p>
         </main>
+
+        <dialog class="sheet" id="sheet">
+            <div class="sheet-room" id="sheetRoom"></div>
+            <div class="sheet-slot" id="sheetSlot"></div>
+            <div class="sheet-window" id="sheetWindow"></div>
+            <ul id="sheetDates"></ul>
+            <div class="sheet-actions">
+                <button id="sheetDelete">この授業を削除</button>
+                <button class="sheet-close" id="sheetClose">閉じる</button>
+            </div>
+        </dialog>
 
         <script src="history-core.js"></script>
         <script>
             const WEEK = ["日", "月", "火", "水", "木", "金", "土"];
             const daysSelect = document.getElementById("days");
-            const listEl = document.getElementById("list");
+            const table = document.getElementById("timetable");
+            const sheet = document.getElementById("sheet");
+            let current = null;
 
             const hhmm = (min) => `${Math.floor(min / 60)}:${String(min % 60).padStart(2, "0")}`;
 
@@ -227,8 +364,7 @@
 
             // 「火曜日 9:00開始」/ 絞り込み中は「火曜日 9:00か10:00開始」
             function startLabel(c) {
-                const starts = c.starts.map((h) => `${h}:00`).join("か");
-                return `${WEEK[c.day]}曜日 ${starts}開始`;
+                return `${WEEK[c.day]}曜日 ${c.starts.map((h) => `${h}:00`).join("か")}開始`;
             }
 
             function windowLabel(c) {
@@ -237,51 +373,130 @@
                 return `トップに表示: ${hhmm(from)}〜${hhmm(to)}`;
             }
 
-            // 曜日・時間順 (月曜始まり)
-            function sortedClasses(list) {
-                return classify(list).sort(
-                    (a, b) =>
-                        ((a.day + 6) % 7) - ((b.day + 6) % 7) ||
-                        Math.min(...a.starts) - Math.min(...b.starts) ||
-                        a.room.localeCompare(b.room),
-                );
+            // 同じ曜日で時間が重なる授業は、重なっている範囲を縦に分けて並べる
+            function assignLanes(classes) {
+                let lanes = [];
+                let cluster = [];
+                let clusterEnd = -Infinity;
+                const finish = () => {
+                    const top = Math.min(...cluster.map((c) => Math.min(...c.starts)));
+                    cluster.forEach((c) => {
+                        c.lanes = lanes.length;
+                        c.clusterTop = top;
+                        c.clusterRows = clusterEnd - top;
+                    });
+                };
+                for (const c of classes.sort(
+                    (a, b) => Math.min(...a.starts) - Math.min(...b.starts) || a.room.localeCompare(b.room),
+                )) {
+                    const top = Math.min(...c.starts);
+                    const end = Math.max(...c.starts) + 1;
+                    // 重なりが途切れたら並べ方の計算をやり直す
+                    if (top >= clusterEnd) {
+                        if (cluster.length) finish();
+                        lanes = [];
+                        cluster = [];
+                    }
+                    let lane = lanes.findIndex((laneEnd) => laneEnd <= top);
+                    if (lane === -1) lane = lanes.push(0) - 1;
+                    lanes[lane] = end;
+                    c.lane = lane;
+                    cluster.push(c);
+                    clusterEnd = Math.max(clusterEnd, end);
+                }
+                if (cluster.length) finish();
             }
 
             function render() {
-                const list = loadHistory();
-                listEl.replaceChildren();
-                if (list.length === 0) {
-                    listEl.innerHTML = '<p class="empty">履歴はまだありません</p>';
-                    return;
+                const classes = classify(loadHistory());
+                // 月〜土 (日曜の授業があれば日曜も)
+                const days = [1, 2, 3, 4, 5, 6];
+                if (classes.some((c) => c.day === 0)) days.push(0);
+                const starts = classes.flatMap((c) => c.starts);
+                const first = Math.min(FIRST_START, ...starts);
+                const last = Math.max(LAST_START, ...starts);
+                const today = new Date().getDay();
+
+                table.style.setProperty("--days", days.length);
+                table.replaceChildren();
+                table.appendChild(document.createElement("div"));
+                for (const d of days) {
+                    const head = document.createElement("div");
+                    head.className = "day-head" + (d === today ? " today" : "");
+                    head.textContent = WEEK[d];
+                    table.appendChild(head);
                 }
-                for (const c of sortedClasses(list)) {
-                    const card = document.createElement("div");
-                    card.className = "card";
-                    card.innerHTML = `
-                        <div class="room"></div>
-                        <div class="detail">
-                            <div class="slot"></div>
-                            <div class="window"></div>
-                            <div class="dates"></div>
-                        </div>
-                        <button class="delete" aria-label="この授業の履歴を削除">
-                            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
-                                <path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" />
-                            </svg>
-                        </button>`;
-                    card.querySelector(".room").textContent = c.room;
-                    card.querySelector(".slot").textContent = startLabel(c);
-                    card.querySelector(".window").textContent = windowLabel(c);
-                    const times = c.items.map((x) => x.time).sort((a, b) => b - a);
-                    card.querySelector(".dates").textContent = "出席: " + times.map(formatDate).join("、");
-                    card.querySelector(".delete").addEventListener("click", () => {
-                        if (!confirm(`${c.room}（${startLabel(c)}）の履歴を削除しますか？`)) return;
-                        saveHistory(loadHistory().filter((h) => !(h.room === c.room && times.includes(h.time))));
-                        render();
-                    });
-                    listEl.appendChild(card);
+
+                const times = document.createElement("div");
+                times.className = "times";
+                for (let h = first; h <= last; h++) {
+                    const t = document.createElement("div");
+                    t.className = "time";
+                    t.textContent = `${h}:00`;
+                    times.appendChild(t);
                 }
+                table.appendChild(times);
+
+                for (const d of days) {
+                    const col = document.createElement("div");
+                    col.className = "day-col";
+                    const dayClasses = classes.filter((c) => c.day === d);
+                    assignLanes(dayClasses);
+                    for (const c of dayClasses) {
+                        let top = Math.min(...c.starts) - first;
+                        let rows = c.starts.length;
+                        if (c.lanes > 1) {
+                            rows = c.clusterRows / c.lanes;
+                            top = c.clusterTop - first + rows * c.lane;
+                        }
+                        const b = document.createElement("button");
+                        b.className =
+                            "class" + (c.starts.length > 1 ? " unsure" : "") + (rows < 1 ? " compact" : "");
+                        b.style.top = `calc(var(--row) * ${top} + 2px)`;
+                        b.style.height = `calc(var(--row) * ${rows} - 4px)`;
+                        b.style.left = "2px";
+                        b.style.right = "2px";
+                        b.setAttribute("aria-label", `${c.room} ${startLabel(c)}`);
+                        b.textContent = c.room;
+                        if (c.starts.length > 1) {
+                            const s = document.createElement("small");
+                            s.textContent = "推定中";
+                            b.appendChild(s);
+                        }
+                        b.addEventListener("click", () => openSheet(c));
+                        col.appendChild(b);
+                    }
+                    table.appendChild(col);
+                }
+                document.getElementById("empty").hidden = classes.length > 0;
             }
+
+            function openSheet(c) {
+                current = c;
+                document.getElementById("sheetRoom").textContent = c.room;
+                document.getElementById("sheetSlot").textContent = startLabel(c);
+                document.getElementById("sheetWindow").textContent = windowLabel(c);
+                const list = document.getElementById("sheetDates");
+                list.replaceChildren();
+                for (const t of c.items.map((x) => x.time).sort((a, b) => b - a)) {
+                    const li = document.createElement("li");
+                    li.textContent = "出席: " + formatDate(t);
+                    list.appendChild(li);
+                }
+                sheet.showModal();
+            }
+
+            document.getElementById("sheetClose").addEventListener("click", () => sheet.close());
+            // 外側タップで閉じる
+            sheet.addEventListener("click", (e) => e.target === sheet && sheet.close());
+            document.getElementById("sheetDelete").addEventListener("click", () => {
+                const c = current;
+                if (!confirm(`${c.room}（${startLabel(c)}）の履歴を削除しますか？`)) return;
+                const times = c.items.map((x) => x.time);
+                saveHistory(loadHistory().filter((h) => !(h.room === c.room && times.includes(h.time))));
+                sheet.close();
+                render();
+            });
 
             daysSelect.value = String(getDays());
             daysSelect.addEventListener("change", () => {
