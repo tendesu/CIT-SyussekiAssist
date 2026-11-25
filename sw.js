@@ -1,11 +1,12 @@
 // ファイルを更新したらVERSIONを上げる
-const VERSION = "v1";
+const VERSION = "v2";
 const CACHE = "cit-syusseki-" + VERSION;
 const ASSETS = [
     "./",
     "./index.html",
     "./manifest.json",
     "./icon-192.png",
+    "./qr.js",
     "./link/icon/cit_portal.png",
     "./link/icon/manaba.png",
     "./link/icon/gohan.png",
