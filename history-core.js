@@ -68,24 +68,27 @@ function addHistory(room) {
 
 // その時刻(分)に出席したとき、考えられる授業開始時刻(時)
 // 出席できるのは開始30分前から1時間後までなので、毎時0分開始のうちそれに当てはまるもの
-// 授業は1限(9:00)〜10限(18:00)なので、8時台の出席は1限として扱う
-function startCandidates(min) {
+// 時間割に出す記録は1限(9:00)〜10限(18:00)に合わせ、8時台の出席は1限として扱う
+// 時間外の記録(timetable=false)は時間割にとらわれずに予測する (0時をまたぐと24以上や負の値になる)
+function startCandidates(min, timetable = true) {
     const result = [];
     for (let h = Math.ceil((min - AFTER) / 60); h * 60 - BEFORE <= min; h++) {
-        if (h >= FIRST_START && h <= LAST_START) result.push(h);
+        if (!timetable || (h >= FIRST_START && h <= LAST_START)) result.push(h);
     }
     return result.length ? result : [FIRST_START];
 }
 
-// 同じ教室・同じ曜日・同じ開始時刻の候補の記録を1つの授業としてまとめる (表示しない時間帯の記録は除く)
+// 同じ教室・同じ曜日・同じ開始時刻の候補の記録を1つの授業としてまとめる
+// 時間割用(all=false)では19:00〜翌7:59の記録は除く。出席ボタン用(all=true)は全部使う
 // 返り値: [{ room, day, starts: [開始時刻の候補], items: [{ time }] }]
-function classify(list) {
+function classify(list, all = false) {
     const classes = new Map();
     for (const h of list) {
-        if (!inShowHours(h.time)) continue;
+        const show = inShowHours(h.time);
+        if (!all && !show) continue;
         const d = new Date(h.time);
         const day = d.getDay();
-        const starts = startCandidates(d.getHours() * 60 + d.getMinutes());
+        const starts = startCandidates(d.getHours() * 60 + d.getMinutes(), show);
         const key = `${h.room}|${day}|${starts}`;
         if (!classes.has(key)) classes.set(key, { room: h.room, day, starts, items: [] });
         classes.get(key).items.push({ time: h.time });
@@ -93,24 +96,33 @@ function classify(list) {
     return [...classes.values()];
 }
 
+// 1週間の中での分 (日曜0:00が0)。0時をまたぐ出席可能時間も扱えるように週単位で比べる
+const WEEK_MIN = 7 * 24 * 60;
+const weekMinute = (d) => d.getDay() * 24 * 60 + d.getHours() * 60 + d.getMinutes();
+
 // 今その授業に出席できる時間か
 function canAttendNow(cls, now = new Date()) {
-    if (cls.day !== now.getDay()) return false;
-    const min = now.getHours() * 60 + now.getMinutes();
-    return cls.starts.some((h) => min >= h * 60 - BEFORE && min <= h * 60 + AFTER);
+    const nowW = weekMinute(now);
+    return cls.starts.some((h) => {
+        const from = cls.day * 24 * 60 + h * 60 - BEFORE;
+        const offset = (((nowW - from) % WEEK_MIN) + WEEK_MIN) % WEEK_MIN;
+        return offset <= BEFORE + AFTER;
+    });
 }
 
-// 今出席できる教室を、ありそうな順に並べる
+// 今出席できる教室を、ありそうな順に並べる (時間外の記録も同じ基準で使う)
 // 1. 過去の出席時刻が今の時刻に近い  2. 出席回数が多い  3. 最近出席した
 function suggestRooms(list, now = new Date()) {
     const nowMin = now.getHours() * 60 + now.getMinutes();
     const rooms = new Map();
-    for (const c of classify(list)) {
+    for (const c of classify(list, true)) {
         if (!canAttendNow(c, now)) continue;
         const r = rooms.get(c.room) || { room: c.room, diff: Infinity, count: 0, last: 0 };
         for (const { time } of c.items) {
             const d = new Date(time);
-            r.diff = Math.min(r.diff, Math.abs(d.getHours() * 60 + d.getMinutes() - nowMin));
+            const diff = Math.abs(d.getHours() * 60 + d.getMinutes() - nowMin);
+            // 23:50と0:10のように0時をまたぐ場合も近いとみなす
+            r.diff = Math.min(r.diff, diff, 24 * 60 - diff);
             r.count++;
             r.last = Math.max(r.last, time);
         }
