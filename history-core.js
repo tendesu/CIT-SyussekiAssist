@@ -12,13 +12,13 @@ const FIRST_START = 9;
 const LAST_START = 18;
 const BEFORE = 30;
 const AFTER = 60;
-// 記録するのは8:00〜18:59の出席だけ (19:00〜翌7:59は保存しない)
-const RECORD_FROM = 8;
-const RECORD_UNTIL = 19;
+// 時間割・出席ボタンに使うのは8:00〜18:59の出席だけ (19:00〜翌7:59の記録は保存はするが表示しない)
+const SHOW_FROM = 8;
+const SHOW_UNTIL = 19;
 
-function inRecordHours(time) {
+function inShowHours(time) {
     const h = new Date(time).getHours();
-    return h >= RECORD_FROM && h < RECORD_UNTIL;
+    return h >= SHOW_FROM && h < SHOW_UNTIL;
 }
 
 function getDays() {
@@ -45,11 +45,11 @@ function saveHistory(list) {
     }
 }
 
-// 保存期間を過ぎたもの・記録しない時間帯のものは削除して返す
+// 保存期間を過ぎたものは削除して返す
 function loadHistory() {
     try {
         const list = JSON.parse(localStorage.getItem(HISTORY_KEY)) || [];
-        const kept = list.filter((h) => Date.now() - h.time < getDays() * DAY && inRecordHours(h.time));
+        const kept = list.filter((h) => Date.now() - h.time < getDays() * DAY);
         if (kept.length !== list.length) saveHistory(kept);
         return kept;
     } catch (e) {
@@ -58,7 +58,6 @@ function loadHistory() {
 }
 
 function addHistory(room) {
-    if (!inRecordHours(Date.now())) return;
     const list = loadHistory();
     const last = list[list.length - 1];
     // Enterとchangeで二重に記録しないように
@@ -78,11 +77,12 @@ function startCandidates(min) {
     return result.length ? result : [FIRST_START];
 }
 
-// 同じ教室・同じ曜日・同じ開始時刻の候補の記録を1つの授業としてまとめる
+// 同じ教室・同じ曜日・同じ開始時刻の候補の記録を1つの授業としてまとめる (表示しない時間帯の記録は除く)
 // 返り値: [{ room, day, starts: [開始時刻の候補], items: [{ time }] }]
 function classify(list) {
     const classes = new Map();
     for (const h of list) {
+        if (!inShowHours(h.time)) continue;
         const d = new Date(h.time);
         const day = d.getDay();
         const starts = startCandidates(d.getHours() * 60 + d.getMinutes());
