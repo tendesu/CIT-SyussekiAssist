@@ -6,7 +6,8 @@ const DAYS_KEY = "historyDays";
 const DEFAULT_DAYS = 15;
 const DAY = 24 * 60 * 60 * 1000;
 
-// 授業は9:00〜18:00の毎時0分開始。出席できるのは開始30分前から1時間後まで。
+// 出席できるのは授業開始30分前から1時間後まで。
+// 時間割の表示は9:00(1限)〜18:00(10限)
 const FIRST_START = 9;
 const LAST_START = 18;
 const BEFORE = 30;
@@ -58,76 +59,26 @@ function addHistory(room) {
 }
 
 // その時刻(分)に出席したとき、考えられる授業開始時刻(時)
+// 出席できるのは開始30分前から1時間後までなので、毎時0分開始のうちそれに当てはまるもの
 function startCandidates(min) {
-    const fits = (h) => min >= h * 60 - BEFORE && min <= h * 60 + AFTER;
     const result = [];
-    for (let h = FIRST_START; h <= LAST_START; h++) if (fits(h)) result.push(h);
-    if (result.length) return result;
-    // 授業時間外の記録は時間割にとらわれず推定
     for (let h = Math.ceil((min - AFTER) / 60); h * 60 - BEFORE <= min; h++) result.push(h);
     return result;
 }
 
-// 履歴を授業ごとにまとめ、記録が増えるほど開始時刻を絞り込む
-// 返り値: [{ room, day, starts: [開始時刻の候補], items: [{ time, ... }] }]
+// 同じ教室・同じ曜日・同じ開始時刻の候補の記録を1つの授業としてまとめる
+// 返り値: [{ room, day, starts: [開始時刻の候補], items: [{ time }] }]
 function classify(list) {
-    const buckets = new Map();
+    const classes = new Map();
     for (const h of list) {
         const d = new Date(h.time);
-        const min = d.getHours() * 60 + d.getMinutes();
-        const e = {
-            room: h.room,
-            time: h.time,
-            day: d.getDay(),
-            date: d.toDateString(),
-            min,
-            starts: startCandidates(min),
-        };
-        const key = e.room + "|" + e.day;
-        if (!buckets.has(key)) buckets.set(key, []);
-        buckets.get(key).push(e);
+        const day = d.getDay();
+        const starts = startCandidates(d.getHours() * 60 + d.getMinutes());
+        const key = `${h.room}|${day}|${starts}`;
+        if (!classes.has(key)) classes.set(key, { room: h.room, day, starts, items: [] });
+        classes.get(key).items.push({ time: h.time });
     }
-
-    const result = [];
-    for (const entries of buckets.values()) {
-        // 開始時刻がはっきりしている記録から先に授業を作る
-        entries.sort((a, b) => a.starts.length - b.starts.length || a.time - b.time);
-        const classes = [];
-        for (const e of entries) {
-            let best = null;
-            for (const c of classes) {
-                const starts = c.starts.filter((h) => e.starts.includes(h));
-                if (!starts.length) continue;
-                // 同じ日に30分以上離れた記録は別の授業 (同じ教室で連続する授業)
-                const sameDay = c.items.find((x) => x.date === e.date);
-                if (sameDay && Math.abs(sameDay.min - e.min) > 30) continue;
-                if (!best || starts.length < best.starts.length) best = { c, starts };
-            }
-            if (best) {
-                best.c.starts = best.starts;
-                best.c.items.push(e);
-            } else {
-                classes.push({ room: e.room, day: e.day, starts: [...e.starts], items: [e] });
-            }
-        }
-
-        // 同じ日に行われる別の授業とは開始時刻が重ならない
-        let changed = true;
-        while (changed) {
-            changed = false;
-            for (const a of classes) {
-                if (a.starts.length !== 1) continue;
-                for (const b of classes) {
-                    if (b === a || b.starts.length < 2 || !b.starts.includes(a.starts[0])) continue;
-                    if (!b.items.some((x) => a.items.some((y) => y.date === x.date))) continue;
-                    b.starts = b.starts.filter((h) => h !== a.starts[0]);
-                    changed = true;
-                }
-            }
-        }
-        result.push(...classes);
-    }
-    return result;
+    return [...classes.values()];
 }
 
 // 今その授業に出席できる時間か

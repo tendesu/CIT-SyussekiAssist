@@ -193,7 +193,7 @@
                 overflow: hidden;
             }
 
-            /* 開始時刻を絞り込み中の授業 */
+            /* 開始時刻が2通り考えられる授業 */
             .class.unsure {
                 color: #30386c;
                 background: rgba(48, 56, 108, 0.1);
@@ -362,7 +362,7 @@
                 <button id="clearAll">すべて削除</button>
             </div>
             <p class="note">
-                授業開始30分前から1時間後まで、トップページに出席ボタンが表示されます。点線の授業は開始時刻を絞り込み中です（出席の記録が増えると確定します）。
+                授業開始30分前から1時間後まで、トップページに出席ボタンが表示されます。点線の授業は、出席した時刻から開始時刻が2通り考えられる授業です（両方の時間帯にボタンが表示されます）。
             </p>
             <p class="now-status" id="now"></p>
             <div class="timetable" id="timetable"></div>
@@ -398,7 +398,7 @@
             // 9:00開始を1限とする
             const periodOf = (h) => (h >= FIRST_START && h <= LAST_START ? h - FIRST_START + 1 : null);
 
-            // 「火曜日 1限（9:00開始）」/ 絞り込み中は「火曜日 1限か2限（9:00か10:00開始）」
+            // 「火曜日 1限（9:00開始）」/ 2通り考えられる場合は「火曜日 1限か2限（9:00か10:00開始）」
             function startLabel(c) {
                 const times = c.starts.map((h) => `${h}:00`).join("か");
                 if (!c.starts.every(periodOf)) return `${WEEK[c.day]}曜日 ${times}開始`;
