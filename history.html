@@ -128,13 +128,44 @@
             }
 
             .time {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
                 height: var(--row);
                 box-sizing: border-box;
-                padding: 2px 4px 0 0;
-                font-size: 11px;
-                text-align: right;
+                font-size: 10px;
+                line-height: 1.3;
                 color: #666;
                 border-top: 1px solid #eee;
+            }
+
+            .time b {
+                font-size: 13px;
+                color: #000;
+            }
+
+            .time.now {
+                color: #fff;
+                background: #30386c;
+            }
+
+            .time.now b {
+                color: #fff;
+            }
+
+            .now-cell {
+                position: absolute;
+                left: 0;
+                right: 0;
+                height: var(--row);
+                background: rgba(48, 56, 108, 0.12);
+            }
+
+            .now-status {
+                margin: 0 0 8px;
+                font-size: 15px;
+                font-weight: 700;
             }
 
             .day-col {
@@ -169,11 +200,6 @@
                 border-style: dashed;
             }
 
-            .class small {
-                font-size: 10px;
-                font-weight: 400;
-            }
-
             /* 重なって低くなった授業 */
             .class.compact {
                 font-size: 13px;
@@ -181,9 +207,6 @@
                 border-width: 1px;
             }
 
-            .class.compact small {
-                display: none;
-            }
 
             .empty {
                 margin: 16px 0 0;
@@ -270,6 +293,15 @@
                 .time {
                     border-color: #2a2a2a;
                 }
+                .time b {
+                    color: #fff;
+                }
+                .time.now {
+                    background: #5a62a8;
+                }
+                .now-cell {
+                    background: rgba(154, 162, 224, 0.16);
+                }
                 .day-col {
                     border-color: #2a2a2a;
                     background-image: linear-gradient(#2a2a2a 1px, transparent 1px);
@@ -332,6 +364,7 @@
             <p class="note">
                 授業開始30分前から1時間後まで、トップページに出席ボタンが表示されます。点線の授業は開始時刻を絞り込み中です（出席の記録が増えると確定します）。
             </p>
+            <p class="now-status" id="now"></p>
             <div class="timetable" id="timetable"></div>
             <p class="empty" id="empty" hidden>履歴はまだありません</p>
         </main>
@@ -362,9 +395,14 @@
                 return `${d.getMonth() + 1}/${d.getDate()}(${WEEK[d.getDay()]}) ${hhmm(d.getHours() * 60 + d.getMinutes())}`;
             }
 
-            // 「火曜日 9:00開始」/ 絞り込み中は「火曜日 9:00か10:00開始」
+            // 9:00開始を1限とする
+            const periodOf = (h) => (h >= FIRST_START && h <= LAST_START ? h - FIRST_START + 1 : null);
+
+            // 「火曜日 1限（9:00開始）」/ 絞り込み中は「火曜日 1限か2限（9:00か10:00開始）」
             function startLabel(c) {
-                return `${WEEK[c.day]}曜日 ${c.starts.map((h) => `${h}:00`).join("か")}開始`;
+                const times = c.starts.map((h) => `${h}:00`).join("か");
+                if (!c.starts.every(periodOf)) return `${WEEK[c.day]}曜日 ${times}開始`;
+                return `${WEEK[c.day]}曜日 ${c.starts.map((h) => `${periodOf(h)}限`).join("か")}（${times}開始）`;
             }
 
             function windowLabel(c) {
@@ -409,13 +447,19 @@
 
             function render() {
                 const classes = classify(loadHistory());
-                // 月〜土 (日曜の授業があれば日曜も)
-                const days = [1, 2, 3, 4, 5, 6];
+                // 月〜金 (土曜・日曜は授業があれば追加)
+                const days = [1, 2, 3, 4, 5];
+                if (classes.some((c) => c.day === 6)) days.push(6);
                 if (classes.some((c) => c.day === 0)) days.push(0);
                 const starts = classes.flatMap((c) => c.starts);
                 const first = Math.min(FIRST_START, ...starts);
                 const last = Math.max(LAST_START, ...starts);
-                const today = new Date().getDay();
+                const now = new Date();
+                const today = now.getDay();
+                const nowHour = periodOf(now.getHours()) ? now.getHours() : null;
+                document.getElementById("now").textContent = nowHour
+                    ? `今は ${WEEK[today]}曜日 ${periodOf(nowHour)}限（${nowHour}:00〜${nowHour + 1}:00）`
+                    : `今は授業時間外です（${WEEK[today]}曜日 ${hhmm(now.getHours() * 60 + now.getMinutes())}）`;
 
                 table.style.setProperty("--days", days.length);
                 table.replaceChildren();
@@ -431,8 +475,11 @@
                 times.className = "times";
                 for (let h = first; h <= last; h++) {
                     const t = document.createElement("div");
-                    t.className = "time";
-                    t.textContent = `${h}:00`;
+                    t.className = "time" + (h === nowHour ? " now" : "");
+                    const p = periodOf(h);
+                    t.innerHTML = p ? "<b></b><span></span>" : "<span></span>";
+                    if (p) t.querySelector("b").textContent = `${p}限`;
+                    t.querySelector("span").textContent = `${h}:00`;
                     times.appendChild(t);
                 }
                 table.appendChild(times);
@@ -440,6 +487,12 @@
                 for (const d of days) {
                     const col = document.createElement("div");
                     col.className = "day-col";
+                    if (d === today && nowHour) {
+                        const mark = document.createElement("div");
+                        mark.className = "now-cell";
+                        mark.style.top = `calc(var(--row) * ${nowHour - first})`;
+                        col.appendChild(mark);
+                    }
                     const dayClasses = classes.filter((c) => c.day === d);
                     assignLanes(dayClasses);
                     for (const c of dayClasses) {
@@ -458,11 +511,6 @@
                         b.style.right = "2px";
                         b.setAttribute("aria-label", `${c.room} ${startLabel(c)}`);
                         b.textContent = c.room;
-                        if (c.starts.length > 1) {
-                            const s = document.createElement("small");
-                            s.textContent = "推定中";
-                            b.appendChild(s);
-                        }
                         b.addEventListener("click", () => openSheet(c));
                         col.appendChild(b);
                     }
@@ -521,6 +569,8 @@
             });
 
             render();
+            // 今の時限の表示を更新
+            setInterval(() => !sheet.open && render(), 60 * 1000);
         </script>
     </body>
 </html>
