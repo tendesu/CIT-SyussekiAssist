@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="ja">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>履歴 | CIT出席アシスト</title>
+        <link rel="manifest" href="manifest.json" />
+        <meta name="theme-color" content="#30386C" />
+
+        <style>
+            body {
+                font-family: sans-serif;
+                margin: 0;
+                background: #f0f0f0;
+                color: #000;
+            }
+
+            header {
+                position: sticky;
+                top: 0;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                padding: 10px 12px;
+                background: #f0f0f0;
+            }
+
+            h1 {
+                font-size: 22px;
+                margin: 0;
+                color: #30386c;
+            }
+
+            .back {
+                display: flex;
+                padding: 8px;
+                color: #30386c;
+            }
+
+            .icon {
+                width: 24px;
+                height: 24px;
+                fill: none;
+                stroke: currentColor;
+                stroke-width: 2;
+                stroke-linecap: round;
+                stroke-linejoin: round;
+                flex: 0 0 auto;
+            }
+
+            main {
+                max-width: 560px;
+                margin: 0 auto;
+                padding: 0 16px 40px;
+            }
+
+            .settings {
+                display: flex;
+                flex-wrap: wrap;
+                align-items: center;
+                justify-content: space-between;
+                gap: 12px;
+                margin: 8px 0 20px;
+            }
+
+            label {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                font-size: 15px;
+            }
+
+            select {
+                font-size: 15px;
+                padding: 6px 8px;
+                border: 2px solid #30386c;
+                border-radius: 8px;
+                background: #fff;
+                color: #000;
+            }
+
+            button {
+                font-size: 15px;
+                padding: 8px 14px;
+                border-radius: 8px;
+                cursor: pointer;
+                background: transparent;
+                color: #c0392b;
+                border: 2px solid #c0392b;
+            }
+
+            .note {
+                font-size: 13px;
+                color: #666;
+                margin: -8px 0 20px;
+            }
+
+            .card {
+                display: flex;
+                align-items: center;
+                gap: 16px;
+                padding: 14px 16px;
+                margin-bottom: 12px;
+                background: #fff;
+                border-radius: 12px;
+                box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+            }
+
+            .room {
+                min-width: 72px;
+                font-size: 32px;
+                font-weight: 700;
+                text-align: center;
+                color: #30386c;
+            }
+
+            .detail {
+                flex: 1;
+                min-width: 0;
+            }
+
+            .slot {
+                font-size: 16px;
+                font-weight: 700;
+            }
+
+            .dates {
+                margin-top: 4px;
+                font-size: 13px;
+                color: #666;
+            }
+
+            .delete {
+                padding: 8px;
+                line-height: 0;
+                border: none;
+            }
+
+            .empty {
+                margin-top: 60px;
+                text-align: center;
+                color: #666;
+            }
+
+            @media (prefers-color-scheme: dark) {
+                body,
+                header {
+                    background: #121212;
+                    color: #fff;
+                }
+                h1,
+                .back {
+                    color: #9aa2e0;
+                }
+                select {
+                    background: #1e1e1e;
+                    color: #fff;
+                    border-color: #9aa2e0;
+                }
+                .card {
+                    background: #1e1e1e;
+                }
+                .room {
+                    color: #9aa2e0;
+                }
+                .note,
+                .dates,
+                .empty {
+                    color: #aaa;
+                }
+                button {
+                    color: #ff7b6e;
+                    border-color: #ff7b6e;
+                }
+            }
+        </style>
+    </head>
+
+    <body>
+        <header>
+            <a class="back" href="./" aria-label="戻る">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M15 18l-6-6 6-6" />
+                </svg>
+            </a>
+            <h1>出席履歴</h1>
+        </header>
+
+        <main>
+            <div class="settings">
+                <label>
+                    保存期間
+                    <select id="days">
+                        <option value="8">1週間と1日</option>
+                        <option value="15">2週間と1日（標準）</option>
+                        <option value="29">4週間と1日</option>
+                        <option value="120">4か月（半期）</option>
+                    </select>
+                </label>
+                <button id="clearAll">すべて削除</button>
+            </div>
+            <p class="note">
+                同じ曜日・同じ時間帯に、授業開始30分前から1時間後までトップページに表示されます。
+            </p>
+            <div id="list"></div>
+        </main>
+
+        <script>
+            // index.htmlと共通の保存形式
+            const HISTORY_KEY = "history";
+            const DAYS_KEY = "historyDays";
+            const DEFAULT_DAYS = 15;
+            const DAY = 24 * 60 * 60 * 1000;
+            const WEEK = ["日", "月", "火", "水", "木", "金", "土"];
+
+            const daysSelect = document.getElementById("days");
+            const listEl = document.getElementById("list");
+
+            function getDays() {
+                try {
+                    return Number(localStorage.getItem(DAYS_KEY)) || DEFAULT_DAYS;
+                } catch (e) {
+                    return DEFAULT_DAYS;
+                }
+            }
+
+            function load() {
+                try {
+                    const list = JSON.parse(localStorage.getItem(HISTORY_KEY)) || [];
+                    return list.filter((h) => Date.now() - h.time < getDays() * DAY);
+                } catch (e) {
+                    return [];
+                }
+            }
+
+            function save(list) {
+                try {
+                    localStorage.setItem(HISTORY_KEY, JSON.stringify(list));
+                } catch (e) {
+                    // 保存できない環境では何もしない
+                }
+            }
+
+            // 同じ教室・同じ曜日で、入力時刻が1時間以内のものを1つの授業としてまとめる
+            const minuteOfDay = (time) => {
+                const d = new Date(time);
+                return d.getHours() * 60 + d.getMinutes();
+            };
+
+            function groups(list) {
+                const sorted = [...list].sort(
+                    (a, b) =>
+                        a.room.localeCompare(b.room) ||
+                        new Date(a.time).getDay() - new Date(b.time).getDay() ||
+                        minuteOfDay(a.time) - minuteOfDay(b.time),
+                );
+                const result = [];
+                let g = null;
+                for (const h of sorted) {
+                    const day = new Date(h.time).getDay();
+                    const min = minuteOfDay(h.time);
+                    if (!g || g.room !== h.room || g.day !== day || min - g.to > 60) {
+                        g = { room: h.room, day, from: min, to: min, times: [] };
+                        result.push(g);
+                    }
+                    g.to = min;
+                    g.times.push(h.time);
+                }
+                // 曜日・時間順 (月曜始まり)
+                return result.sort(
+                    (a, b) => ((a.day + 6) % 7) - ((b.day + 6) % 7) || a.from - b.from,
+                );
+            }
+
+            const hhmm = (min) => `${Math.floor(min / 60)}:${String(min % 60).padStart(2, "0")}`;
+            const slotLabel = (g) =>
+                `${WEEK[g.day]}曜日 ${hhmm(g.from)}${g.to > g.from ? "〜" + hhmm(g.to) : ""} ごろ`;
+
+            function formatDate(time) {
+                const d = new Date(time);
+                const mm = String(d.getMinutes()).padStart(2, "0");
+                return `${d.getMonth() + 1}/${d.getDate()}(${WEEK[d.getDay()]}) ${d.getHours()}:${mm}`;
+            }
+
+            function render() {
+                const list = load();
+                save(list);
+                listEl.replaceChildren();
+                if (list.length === 0) {
+                    listEl.innerHTML = '<p class="empty">履歴はまだありません</p>';
+                    return;
+                }
+                for (const g of groups(list)) {
+                    const card = document.createElement("div");
+                    card.className = "card";
+                    card.innerHTML = `
+                        <div class="room"></div>
+                        <div class="detail">
+                            <div class="slot"></div>
+                            <div class="dates"></div>
+                        </div>
+                        <button class="delete" aria-label="この授業の履歴を削除">
+                            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" />
+                            </svg>
+                        </button>`;
+                    card.querySelector(".room").textContent = g.room;
+                    card.querySelector(".slot").textContent = slotLabel(g);
+                    card.querySelector(".dates").textContent = g.times
+                        .sort((a, b) => b - a)
+                        .map(formatDate)
+                        .join("、");
+                    card.querySelector(".delete").addEventListener("click", () => {
+                        if (!confirm(`${g.room}（${slotLabel(g)}）の履歴を削除しますか？`)) return;
+                        save(load().filter((h) => !g.times.includes(h.time) || h.room !== g.room));
+                        render();
+                    });
+                    listEl.appendChild(card);
+                }
+            }
+
+            daysSelect.value = String(getDays());
+            daysSelect.addEventListener("change", () => {
+                const days = Number(daysSelect.value);
+                const removed = load().filter((h) => Date.now() - h.time >= days * DAY).length;
+                if (removed > 0 && !confirm(`${removed}件の履歴が保存期間を過ぎるため削除されます。変更しますか？`)) {
+                    daysSelect.value = String(getDays());
+                    return;
+                }
+                try {
+                    localStorage.setItem(DAYS_KEY, String(days));
+                } catch (e) {
+                    // 保存できない環境では何もしない
+                }
+                render();
+            });
+
+            document.getElementById("clearAll").addEventListener("click", () => {
+                if (load().length === 0) return;
+                if (!confirm("すべての履歴を削除しますか？")) return;
+                save([]);
+                render();
+            });
+
+            render();
+        </script>
+    </body>
+</html>

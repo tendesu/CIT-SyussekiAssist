@@ -323,6 +323,36 @@
                 border: 2px solid #30386c;
             }
 
+            /* 今の時間に出席できる過去の教室 */
+            .suggest {
+                display: flex;
+                flex-wrap: wrap;
+                justify-content: center;
+                gap: 10px;
+                margin-top: 20px;
+            }
+
+            .suggest[hidden] {
+                display: none;
+            }
+
+            .suggest-button {
+                display: flex;
+                align-items: baseline;
+                gap: 6px;
+                margin: 0;
+                padding: 10px 20px;
+                font-size: 16px;
+                background: transparent;
+                color: #30386c;
+                border: 2px solid #30386c;
+            }
+
+            .suggest-room {
+                font-size: 24px;
+                font-weight: 700;
+            }
+
             /* 共有時のお知らせ */
             .toast {
                 position: fixed;
@@ -369,7 +399,8 @@
                 .scanner-result-number {
                     color: #9aa2e0;
                 }
-                .scanner-result .scanner-close {
+                .scanner-result .scanner-close,
+                .suggest-button {
                     color: #fff;
                     border-color: #9aa2e0;
                 }
@@ -469,6 +500,7 @@
             />
             <br />
             <button id="goButton">出席</button>
+            <div class="suggest" id="suggest" hidden></div>
         </main>
 
         <nav class="bottom-links" aria-label="よく使うリンク">
@@ -537,15 +569,90 @@
             const input = document.getElementById("numberInput");
             const button = document.getElementById("goButton");
 
-            function jump() {
-                const value = input.value.trim();
-                if (value !== "") {
-                    const targetUrl =
-                        "https://attendance.is.chibatech.ac.jp/attendance/class_room/" +
-                        value;
-                    window.location.href = targetUrl;
+            // 出席履歴 (history.htmlと共通の保存形式)
+            // history: [{ room: "632", time: 入力した時刻(ms) }]
+            // historyDays: 保存日数 (デフォルトは2週間+1日)
+            const HISTORY_KEY = "history";
+            const DAYS_KEY = "historyDays";
+            const DEFAULT_DAYS = 15;
+            const DAY = 24 * 60 * 60 * 1000;
+
+            function loadHistory() {
+                try {
+                    const days = Number(localStorage.getItem(DAYS_KEY)) || DEFAULT_DAYS;
+                    const list = JSON.parse(localStorage.getItem(HISTORY_KEY)) || [];
+                    // 保存期間を過ぎたものは削除
+                    const kept = list.filter((h) => Date.now() - h.time < days * DAY);
+                    if (kept.length !== list.length) saveHistory(kept);
+                    return kept;
+                } catch (e) {
+                    return [];
                 }
             }
+
+            function saveHistory(list) {
+                try {
+                    localStorage.setItem(HISTORY_KEY, JSON.stringify(list));
+                } catch (e) {
+                    // 保存できない環境では何もしない
+                }
+            }
+
+            function addHistory(room) {
+                const list = loadHistory();
+                const last = list[list.length - 1];
+                // Enterとchangeで二重に記録しないように
+                if (last && last.room === room && Date.now() - last.time < 5 * 60 * 1000) return;
+                list.push({ room, time: Date.now() });
+                saveHistory(list);
+            }
+
+            // 出席できるのは授業開始の30分前から1時間後まで。授業は毎時0分開始。
+            // 過去に入力した時刻から考えられる授業開始時刻を求め、
+            // 同じ曜日の今がその出席可能時間内ならtrue
+            function canAttendNow(time, now = new Date()) {
+                const past = new Date(time);
+                if (past.getDay() !== now.getDay()) return false;
+                const pastMin = past.getHours() * 60 + past.getMinutes();
+                const nowMin = now.getHours() * 60 + now.getMinutes();
+                for (let start = Math.ceil((pastMin - 60) / 60) * 60; start <= pastMin + 30; start += 60) {
+                    if (nowMin >= start - 30 && nowMin <= start + 60) return true;
+                }
+                return false;
+            }
+
+            function go(room) {
+                addHistory(room);
+                window.location.href =
+                    "https://attendance.is.chibatech.ac.jp/attendance/class_room/" + room;
+            }
+
+            function jump() {
+                const value = input.value.trim();
+                if (value !== "") go(value);
+            }
+
+            // 今の時間に出席できる過去の教室を表示
+            function showSuggestions() {
+                const rooms = [];
+                for (const h of loadHistory().reverse()) {
+                    if (!rooms.includes(h.room) && canAttendNow(h.time)) rooms.push(h.room);
+                }
+                const box = document.getElementById("suggest");
+                box.replaceChildren();
+                rooms.slice(0, 3).forEach((room) => {
+                    const b = document.createElement("button");
+                    b.className = "suggest-button";
+                    b.innerHTML = '<span class="suggest-room"></span><span>で出席</span>';
+                    b.firstChild.textContent = room;
+                    b.addEventListener("click", () => go(room));
+                    box.appendChild(b);
+                });
+                box.hidden = rooms.length === 0;
+            }
+            showSuggestions();
+            // 戻る操作で表示されたときも更新
+            window.addEventListener("pageshow", (e) => e.persisted && showSuggestions());
 
             // ボタン移動
             button.addEventListener("click", jump);
@@ -601,9 +708,10 @@
                 );
             });
 
-            // 履歴 (未実装)
+            // 履歴ページへ
             document.getElementById("historyButton").addEventListener("click", () => {
                 setMenu(false);
+                location.href = "history.html";
             });
 
             // アプリを共有
