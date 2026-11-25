@@ -124,6 +124,11 @@
                 font-weight: 700;
             }
 
+            .window {
+                margin-top: 2px;
+                font-size: 13px;
+            }
+
             .dates {
                 margin-top: 4px;
                 font-size: 13px;
@@ -202,103 +207,61 @@
                 <button id="clearAll">すべて削除</button>
             </div>
             <p class="note">
-                同じ曜日・同じ時間帯に、授業開始30分前から1時間後までトップページに表示されます。
+                同じ曜日の授業開始30分前から1時間後まで、トップページに出席ボタンが表示されます。開始時刻は出席の記録が増えるほど絞り込まれます。
             </p>
             <div id="list"></div>
         </main>
 
+        <script src="history-core.js"></script>
         <script>
-            // index.htmlと共通の保存形式
-            const HISTORY_KEY = "history";
-            const DAYS_KEY = "historyDays";
-            const DEFAULT_DAYS = 15;
-            const DAY = 24 * 60 * 60 * 1000;
             const WEEK = ["日", "月", "火", "水", "木", "金", "土"];
-
             const daysSelect = document.getElementById("days");
             const listEl = document.getElementById("list");
 
-            function getDays() {
-                try {
-                    return Number(localStorage.getItem(DAYS_KEY)) || DEFAULT_DAYS;
-                } catch (e) {
-                    return DEFAULT_DAYS;
-                }
-            }
-
-            function load() {
-                try {
-                    const list = JSON.parse(localStorage.getItem(HISTORY_KEY)) || [];
-                    return list.filter((h) => Date.now() - h.time < getDays() * DAY);
-                } catch (e) {
-                    return [];
-                }
-            }
-
-            function save(list) {
-                try {
-                    localStorage.setItem(HISTORY_KEY, JSON.stringify(list));
-                } catch (e) {
-                    // 保存できない環境では何もしない
-                }
-            }
-
-            // 同じ教室・同じ曜日で、入力時刻が1時間以内のものを1つの授業としてまとめる
-            const minuteOfDay = (time) => {
-                const d = new Date(time);
-                return d.getHours() * 60 + d.getMinutes();
-            };
-
-            function groups(list) {
-                const sorted = [...list].sort(
-                    (a, b) =>
-                        a.room.localeCompare(b.room) ||
-                        new Date(a.time).getDay() - new Date(b.time).getDay() ||
-                        minuteOfDay(a.time) - minuteOfDay(b.time),
-                );
-                const result = [];
-                let g = null;
-                for (const h of sorted) {
-                    const day = new Date(h.time).getDay();
-                    const min = minuteOfDay(h.time);
-                    if (!g || g.room !== h.room || g.day !== day || min - g.to > 60) {
-                        g = { room: h.room, day, from: min, to: min, times: [] };
-                        result.push(g);
-                    }
-                    g.to = min;
-                    g.times.push(h.time);
-                }
-                // 曜日・時間順 (月曜始まり)
-                return result.sort(
-                    (a, b) => ((a.day + 6) % 7) - ((b.day + 6) % 7) || a.from - b.from,
-                );
-            }
-
             const hhmm = (min) => `${Math.floor(min / 60)}:${String(min % 60).padStart(2, "0")}`;
-            const slotLabel = (g) =>
-                `${WEEK[g.day]}曜日 ${hhmm(g.from)}${g.to > g.from ? "〜" + hhmm(g.to) : ""} ごろ`;
 
             function formatDate(time) {
                 const d = new Date(time);
-                const mm = String(d.getMinutes()).padStart(2, "0");
-                return `${d.getMonth() + 1}/${d.getDate()}(${WEEK[d.getDay()]}) ${d.getHours()}:${mm}`;
+                return `${d.getMonth() + 1}/${d.getDate()}(${WEEK[d.getDay()]}) ${hhmm(d.getHours() * 60 + d.getMinutes())}`;
+            }
+
+            // 「火曜日 9:00開始」/ 絞り込み中は「火曜日 9:00か10:00開始」
+            function startLabel(c) {
+                const starts = c.starts.map((h) => `${h}:00`).join("か");
+                return `${WEEK[c.day]}曜日 ${starts}開始`;
+            }
+
+            function windowLabel(c) {
+                const from = Math.min(...c.starts) * 60 - BEFORE;
+                const to = Math.max(...c.starts) * 60 + AFTER;
+                return `トップに表示: ${hhmm(from)}〜${hhmm(to)}`;
+            }
+
+            // 曜日・時間順 (月曜始まり)
+            function sortedClasses(list) {
+                return classify(list).sort(
+                    (a, b) =>
+                        ((a.day + 6) % 7) - ((b.day + 6) % 7) ||
+                        Math.min(...a.starts) - Math.min(...b.starts) ||
+                        a.room.localeCompare(b.room),
+                );
             }
 
             function render() {
-                const list = load();
-                save(list);
+                const list = loadHistory();
                 listEl.replaceChildren();
                 if (list.length === 0) {
                     listEl.innerHTML = '<p class="empty">履歴はまだありません</p>';
                     return;
                 }
-                for (const g of groups(list)) {
+                for (const c of sortedClasses(list)) {
                     const card = document.createElement("div");
                     card.className = "card";
                     card.innerHTML = `
                         <div class="room"></div>
                         <div class="detail">
                             <div class="slot"></div>
+                            <div class="window"></div>
                             <div class="dates"></div>
                         </div>
                         <button class="delete" aria-label="この授業の履歴を削除">
@@ -306,15 +269,14 @@
                                 <path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" />
                             </svg>
                         </button>`;
-                    card.querySelector(".room").textContent = g.room;
-                    card.querySelector(".slot").textContent = slotLabel(g);
-                    card.querySelector(".dates").textContent = g.times
-                        .sort((a, b) => b - a)
-                        .map(formatDate)
-                        .join("、");
+                    card.querySelector(".room").textContent = c.room;
+                    card.querySelector(".slot").textContent = startLabel(c);
+                    card.querySelector(".window").textContent = windowLabel(c);
+                    const times = c.items.map((x) => x.time).sort((a, b) => b - a);
+                    card.querySelector(".dates").textContent = "出席: " + times.map(formatDate).join("、");
                     card.querySelector(".delete").addEventListener("click", () => {
-                        if (!confirm(`${g.room}（${slotLabel(g)}）の履歴を削除しますか？`)) return;
-                        save(load().filter((h) => !g.times.includes(h.time) || h.room !== g.room));
+                        if (!confirm(`${c.room}（${startLabel(c)}）の履歴を削除しますか？`)) return;
+                        saveHistory(loadHistory().filter((h) => !(h.room === c.room && times.includes(h.time))));
                         render();
                     });
                     listEl.appendChild(card);
@@ -324,27 +286,22 @@
             daysSelect.value = String(getDays());
             daysSelect.addEventListener("change", () => {
                 const days = Number(daysSelect.value);
-                const list = load();
                 // 同じ授業の新しい履歴が残るものは数えず、丸ごと消える授業だけ確認する
-                const removed = groups(list).filter((g) =>
-                    g.times.every((t) => Date.now() - t >= days * DAY),
+                const removed = classify(loadHistory()).filter((c) =>
+                    c.items.every((x) => Date.now() - x.time >= days * DAY),
                 ).length;
                 if (removed > 0 && !confirm(`${removed}件の授業が履歴から削除されます。変更しますか？`)) {
                     daysSelect.value = String(getDays());
                     return;
                 }
-                try {
-                    localStorage.setItem(DAYS_KEY, String(days));
-                } catch (e) {
-                    // 保存できない環境では何もしない
-                }
+                setDays(days);
                 render();
             });
 
             document.getElementById("clearAll").addEventListener("click", () => {
-                if (load().length === 0) return;
+                if (loadHistory().length === 0) return;
                 if (!confirm("すべての履歴を削除しますか？")) return;
-                save([]);
+                saveHistory([]);
                 render();
             });
 
